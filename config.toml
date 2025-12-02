@@ -1,0 +1,128 @@
+[optimizer]
+solver = "Gurobi"    # choose between `HiGHS` and `Gurobi`
+
+[optimizer.HiGHS]   # use these parameters if HiGHS is chosen as the optimizer
+parallel = "on"     # use multi-threading
+threads  = 8        # number of threads
+
+[optimizer.Gurobi]  # use these parameters if Gurobi is chosen as the optimizer
+Method = 2          # https://www.gurobi.com/documentation/9.5/refman/method.html
+OutputFlag = 1
+
+
+[outputs]
+dir = "outputs-rp"
+plots = false
+
+[outputs.terminal]
+input_plots      = false
+output_plots     = false
+solution_summary = true
+
+[experiment]
+configurations = 1
+repeats = 1
+
+[[experiment.inputs]]
+# input directory with the files
+dir = "inputs"
+output_file = "outputs/Gurobi/output.csv"
+output_log = "outputs/Gurobi/output.txt"
+rounding = "floor"      # Type of rounding used, options are: round, ceil, floor, tno, none (when using gurobi).
+crossover = "gurobi"      # Type of crossover used, options are: gurobi, hill_climb_first, hill_climb_best, none.
+relaxed = "true"        # Whether the relaxation is used or not (only set to false if using gurobi crossover)
+ramping = "false"        # Whether the ramping constraints are used or not.
+
+[experiment.inputs.scalars]
+file = "scalars.toml"  # name of the file with scalars in the inputs directory
+
+[experiment.inputs.data]
+# input files for data
+demand                  = "iGEP_data_demand.csv"
+generation              = "iGEP_data_generation.csv"
+generation_availability = "iGEP_data_generation_availability.csv"
+transmission_lines      = "iGEP_data_transmission_lines.csv"
+
+[experiment.inputs.sets]
+times = "auto"
+nodes = "auto"
+generators = "auto"
+transmission_lines = "auto"
+
+
+# [[experiment.inputs]]
+# # input directory with the files
+# dir = "inputs"
+# output_file = "outputs/localsearch/hill_climb_first_round_1_year.csv"
+# output_log = "outputs/localsearch/hill_climb_first_round_1_year.txt"
+# rounding = "round"      # Type of rounding used, options are: round, ceil, floor, tno, none (when using gurobi).
+# crossover = "hill_climb_first"      # Type of crossover used, options are: gurobi, hill_climb_first, hill_climb_best, none.
+# relaxed = "true"        # If the relaxation is used or not (only set to false if using gurobi crossover)
+
+# [experiment.inputs.scalars]
+# file = "scalars.toml"  # name of the file with scalars in the inputs directory
+
+# [experiment.inputs.data]
+# # input files for data
+# demand                  = "iGEP_data_demand.csv"
+# generation              = "iGEP_data_generation.csv"
+# generation_availability = "iGEP_data_generation_availability.csv"
+# transmission_lines      = "iGEP_data_transmission_lines.csv"
+
+# [experiment.inputs.sets]
+# times = "auto"
+# nodes = "auto"
+# generators = "auto"
+# transmission_lines = "auto"
+
+
+# [[experiment.inputs]]
+# # input directory with the files
+# dir = "inputs"
+# output_file = "outputs/localsearch/hill_climb_first_ceil_1_year.csv"
+# output_log = "outputs/localsearch/hill_climb_first_ceil_1_year.txt"
+# rounding = "ceil"      # Type of rounding used, options are: round, ceil, floor, tno, none (when using gurobi).
+# crossover = "hill_climb_first"      # Type of crossover used, options are: gurobi, hill_climb_first, hill_climb_best, none.
+# relaxed = "true"        # If the relaxation is used or not (only set to false if using gurobi crossover)
+
+# [experiment.inputs.scalars]
+# file = "scalars.toml"  # name of the file with scalars in the inputs directory
+
+# [experiment.inputs.data]
+# # input files for data
+# demand                  = "iGEP_data_demand.csv"
+# generation              = "iGEP_data_generation.csv"
+# generation_availability = "iGEP_data_generation_availability.csv"
+# transmission_lines      = "iGEP_data_transmission_lines.csv"
+
+# [experiment.inputs.sets]
+# times = "auto"
+# nodes = "auto"
+# generators = "auto"
+# transmission_lines = "auto"
+
+
+# [[experiment.inputs]]
+# # input directory with the files
+# dir = "inputs"
+# output_file = "outputs/localsearch/hill_climb_first_tno_1_year.csv"
+# output_log = "outputs/localsearch/hill_climb_first_tno_1_year.txt"
+# rounding = "tno"      # Type of rounding used, options are: round, ceil, floor, tno, none (when using gurobi).
+# crossover = "hill_climb_first"      # Type of crossover used, options are: gurobi, hill_climb_first, hill_climb_best, none.
+# relaxed = "true"        # If the relaxation is used or not (only set to false if using gurobi crossover)
+
+# [experiment.inputs.scalars]
+# file = "scalars.toml"  # name of the file with scalars in the inputs directory
+
+# [experiment.inputs.data]
+# # input files for data
+# demand                  = "iGEP_data_demand.csv"
+# generation              = "iGEP_data_generation.csv"
+# generation_availability = "iGEP_data_generation_availability.csv"
+# transmission_lines      = "iGEP_data_transmission_lines.csv"
+
+# [experiment.inputs.sets]
+# times = "auto"
+# nodes = "auto"
+# generators = "auto"
+# transmission_lines = "auto"

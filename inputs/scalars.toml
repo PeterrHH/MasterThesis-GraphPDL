@@ -1,0 +1,10 @@
+# weight of representative period [hours]
+representative_period_weight = 1
+
+# Value of lost load (cost of not supplying energy) [kEUR/MWh]
+# value_of_lost_load = 3.0
+value_of_lost_load = 10.0 # Government mandated number (Germán)
+# value_of_lost_load = 0.3 # Slightly higher than most expensive power in the market.
+# value_of_lost_load = 0.01 # Test slightly higher than most expensive power in the market with wind/sun gens only.
+# Relative ramping value 
+ramping_value = 0.2

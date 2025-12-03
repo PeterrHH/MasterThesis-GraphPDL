@@ -199,6 +199,11 @@ class GraphPrimalDualTrainer:
         self.duality_gap_list =[]
         self.train_primal_loss_list = []
 
+        self.ineq_max_list = []
+        self.ineq_mean_list = []
+        self.eq_max_list = []
+        self.eq_mean_list = []
+
         # self.valid_dataset = TensorDataset(self.X_valid, self.total_demands_valid, self.opt_target_val)
 
         self.opt_y_val, self.opt_obj_valid = self.compute_opt(self.valid_indices)
@@ -257,7 +262,7 @@ class GraphPrimalDualTrainer:
         # for epoch in range(self.args["outer_iterations"]):
 
 
-        for epoch in range(100):
+        for epoch in range(200):
             # --- train primal (GNN) ---
             total_train_loss = 0.0
             total_obj = 0.0
@@ -267,8 +272,8 @@ class GraphPrimalDualTrainer:
 
             for batch in self.train_loader:
 
-                mu = torch.ones((len(batch), self.nieq), dtype=self.DTYPE, device=self.DEVICE)
-                lamb = torch.ones((len(batch), self.neq), dtype=self.DTYPE, device=self.DEVICE)
+                mu = torch.zeros((len(batch), self.nieq), dtype=self.DTYPE, device=self.DEVICE)
+                lamb = torch.zeros((len(batch), self.neq), dtype=self.DTYPE, device=self.DEVICE)
 
                 self.primal_optim.zero_grad()
                 pred_p, pred_f, pred_md = self.primal_net(batch.x, batch.edge_index, batch.type_masks)
@@ -303,10 +308,15 @@ class GraphPrimalDualTrainer:
             pass
             mean_train_loss = total_train_loss / len(self.train_loader)
             # print(f"Epoch {epoch}: Mean train primal loss: {mean_train_loss}")
-            mean_opt_gap, opt_gap_list = self.compute_metrics(self.valid_loader)
+            mean_opt_gap, opt_gap_list, ineq_max, ineq_mean, eq_max, eq_mean = self.compute_metrics(self.valid_loader)
             self.duality_gap_list.append(mean_opt_gap)
             self.train_primal_loss_list.append(mean_train_loss)
+            self.ineq_max_list.append(ineq_max)
+            self.ineq_mean_list.append(ineq_mean)
+            self.eq_max_list.append(eq_max)
+            self.eq_mean_list.append(eq_mean)
             print(f"---- Epoch {epoch}: Final Mean Opt Gap {mean_opt_gap:.4f} %")
+            print(f"                     Validation Violations - Ineq Max: {ineq_max:.4f}, Ineq Mean: {ineq_mean:.4f}, Eq Max: {eq_max:.4f}, Eq Mean: {eq_mean:.4f}")
         train_time = time.time() - start_time
         primal_loss = torch.tensor(0.0)
         dual_loss = torch.tensor(0.0)
@@ -368,7 +378,7 @@ class GraphPrimalDualTrainer:
         # Merge pred_p, prep_f and pred_md into Y by 1st dimension
         Y = torch.cat([pred_p, pred_f, pred_md], dim=1)
 
-
+        
         # Print dtype of X and Y
 
         # Reconstruct X from [Batch, |D| + |MaxProd|]
@@ -411,7 +421,7 @@ class GraphPrimalDualTrainer:
 
         all_obj_pred = []
         X_loader = []
-
+        Y_loader = []
         
 
         with torch.no_grad():
@@ -433,23 +443,29 @@ class GraphPrimalDualTrainer:
                 # (you had `data.x.global_feat` which looks wrong)
 
                 X = batch.global_feat.view(num_graph_in_batch, -1)
-                X_loader.append(X)
+  
 
                 N = pred_md.shape[1]  # Number of locations
                 G = pred_p.shape[1]   # Number of generators
 
                 # Take first (N + G) columns
-                X = X[:, :(N + G)].to(self.DTYPE)
+                X = X[:, :(self.num_n + self.num_g)].to(self.DTYPE)
 
                 # Merge predictions along feature dimension
                 Y = torch.cat([pred_p, pred_f, pred_md], dim=1)
 
+    
+
                 # Compute objective value for this batch
-                obj_pred = self.data.obj_fn(X, Y)   # shape: [batch_size] or [size]
+                obj_pred = self.data.obj_fn(X, Y)   # [batch_size]
                 all_obj_pred.append(obj_pred)
+                X_loader.append(X)
+                Y_loader.append(Y)
+
 
             # Concatenate over all batches
             X = torch.cat(X_loader, dim=0)
+            Y = torch.cat(Y_loader, dim=0)
             obj_pred_full = torch.cat(all_obj_pred, dim=0)
             
 
@@ -459,8 +475,10 @@ class GraphPrimalDualTrainer:
                 self.opt_obj_valid,
                 if_primal=True
             )
-
-        return mean_opt_gap, opt_gap_list
+            
+            ineq_max, ineq_mean, eq_max, eq_mean = self.compute_violation(X, Y)
+            
+        return mean_opt_gap, opt_gap_list, ineq_max, ineq_mean, eq_max, eq_mean 
 
     def compute_opt(self, indices):
         '''
@@ -479,44 +497,6 @@ class GraphPrimalDualTrainer:
 
         return opt_y_targets, opt_obj_target
     
-    def plot_metrics(self):
-        """
-        Plots the training loss and validation optimality gap stored during training.
-        """
-        if not self.train_primal_loss_list or not self.duality_gap_list:
-            print("No metrics recorded to plot.")
-            return
-
-        epochs = range(1, len(self.train_primal_loss_list) + 1)
-        
-
-        # First Plot: Primal Loss (Training)
-        plt.figure(figsize=(12, 5))
-        
-        plt.subplot(1, 2, 1)
-        plt.plot(epochs, self.train_primal_loss_list, label='Primal Training Loss (AUGLoss)', color='blue')
-        plt.title('Primal Training Loss per Epoch')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss Value')
-        plt.legend()
-        plt.grid(True)
-
-        # Second Plot: Optimality Gap (Validation)
-        plt.subplot(1, 2, 2)
-        plt.plot(epochs, self.duality_gap_list, label='Validation Opt. Gap (%)', color='red')
-        plt.title('Validation Optimality Gap per Epoch')
-        plt.xlabel('Epoch')
-        plt.ylabel('Optimality Gap (%)')
-        plt.legend()
-        plt.grid(True)
-        
-        # Display plots
-        plt.tight_layout()
-        plt.show() 
-        # If you want to save the figure instead, you can use:
-        # plt.savefig(f'{self.save_dir}/training_metrics.png')
-
-
 
     @torch.no_grad()
     def compute_primal_dual_metric(self, X, total_demands, primal_net, dual_net, X_Opt):     
@@ -532,6 +512,79 @@ class GraphPrimalDualTrainer:
             # For dual, f_pred is lower bound, so reverse the order
             opt_gap = (f_star - f_pred) / (f_star.abs()) * 100.0
         return opt_gap.mean().item(), opt_gap
+    
+    def compute_violation(self,X, Y):
+        '''
+        Returns:
+        - Inequality Max
+        - Inequality Mean
+        - Equality Max
+        - Equality Mean
+        '''
+        ineq_dist = data.ineq_dist(X, Y)
+        eq_resid = data.eq_resid(X, Y)
+
+        obj_values = data.obj_fn(X, Y).detach().numpy()
+        ineq_max_vals = torch.max(ineq_dist, dim=1)[0].detach().numpy() # First element is the max, second is the index
+        ineq_mean_vals = torch.mean(ineq_dist, dim=1).detach().numpy()
+        eq_max_vals = torch.max(torch.abs(eq_resid), dim=1)[0].detach().numpy() # First element is the max, second is the index
+        eq_mean_vals = torch.mean(torch.abs(eq_resid), dim=1).detach().numpy()
+
+        return np.mean(ineq_max_vals), np.mean(ineq_mean_vals), np.mean(eq_max_vals), np.mean(eq_mean_vals)
+
+
+
+    def plot_metrics(self):
+        """
+        Plots the training loss, validation optimality gap, and constraint violations.
+        """
+        if not self.train_primal_loss_list or not self.duality_gap_list:
+            print("No metrics recorded to plot.")
+            return
+
+        epochs = range(1, len(self.train_primal_loss_list) + 1)
+        
+        # Change figure size and layout to accommodate 3 plots
+        plt.figure(figsize=(18, 5))
+        
+        # --- First Plot: Primal Loss (Training) ---
+        plt.subplot(1, 3, 1)
+        plt.plot(epochs, self.train_primal_loss_list, label='Primal Training Loss (AUGLoss)', color='blue')
+        plt.title('Primal Training Loss per Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss Value')
+        plt.legend()
+        plt.grid(True)
+
+        # --- Second Plot: Optimality Gap (Validation) ---
+        plt.subplot(1, 3, 2)
+        plt.plot(epochs, self.duality_gap_list, label='Validation Opt. Gap (%)', color='red')
+        plt.title('Validation Optimality Gap per Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel('Optimality Gap (%)')
+        plt.legend()
+        plt.grid(True)
+
+        # --- Third Plot: Constraint Violations (Validation) ---
+        plt.subplot(1, 3, 3)
+        
+        # Plotting the four violation metrics
+        plt.plot(epochs, self.ineq_max_list, label='Inequality Max Violation', color='darkorange', linestyle='-')
+        plt.plot(epochs, self.ineq_mean_list, label='Inequality Mean Violation', color='orange', linestyle='--')
+        plt.plot(epochs, self.eq_max_list, label='Equality Max Violation', color='darkgreen', linestyle='-')
+        plt.plot(epochs, self.eq_mean_list, label='Equality Mean Violation', color='lightgreen', linestyle='--')
+        
+        plt.title('Validation Constraint Violations per Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel('Violation (Absolute Value)')
+        plt.yscale('log') # Use log scale as violations often decrease exponentially
+        plt.legend()
+        plt.grid(True, which="both", ls="--")
+        
+        # Display plots
+        plt.tight_layout()
+        plt.show()
+
 
 if __name__ == "__main__":
     pass
